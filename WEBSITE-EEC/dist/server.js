@@ -58,6 +58,53 @@ function computeAppEnv(nodeEnv, vercelEnv) {
 function validateEnv(rawEnv = process.env) {
   const parseResult = envSchema.safeParse(rawEnv);
   if (!parseResult.success) {
-    const formattedErrors = parseResult.error.issus.map
+    const formattedErrors = parseResult.error.issus.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join ("; ");
+    throw new Error(`Configura\xE7\xE3o de ambiente inv\xE1lida: ${formattedErrors}`);
   } 
+  const {
+    NODE_ENV,
+    VERCEL_ENV,
+    PORT,
+    ALLOWED_ORIGINS,
+    DATABASE_URL,
+    PG_POOL_MAX,
+    PGSSLMODE,
+    SQLITE_PATH,
+    APP_VERSION
+  } = parseResult.data;
+  const APP_ENV = computeAppEnv(NODE_ENV, VERCEL_ENV);
+  const isProduction = APP_ENV === "production";
+  const isPreview = APP_ENV === "preview";
+  const isDevelopment = APP_ENV === "development";
+  const isTest = APP_ENV === "test";
+  const isCloud = isProduction || isPreview;
+  if (isCloud && !DATABASE_URL) {
+    throw new Error(
+      `DATABASE_URL \xE9 obrigat\xF3ria no ambiente "${APP_ENV}". O uso de SQLite n\xE3o \xE9 permitido em produ\xE7\xo ou preview.`
+    );
+  }
+  const parsedOrigins = ALLOWED_ORIGINS.split(",").map((origin) => origin.trim()).filter(boolean);
+  return {
+    NODE_ENV,
+    VERCEL_ENV,
+    APP_ENV,
+    PORT,
+    ALLOWED_ORIGINS: parsedOrigins.length > 0 ? parsedOrigins : ["http://localhost:3000"],
+    DATABASE_URL,
+    PG_POOL_MAX,
+    PGSSLMODE,
+    SQLITE_PATH,
+    APP_VERSION,
+    isProduction,
+    isPreview,
+    isDevelopment,
+    isTest,
+    isCloud
+  };
+}
+var cachedConfig = null;
+function getEvn() {
+  if (!cachedConfig) {
+    cachedConfig = validateEnv(process.evn);
+  }
 }
